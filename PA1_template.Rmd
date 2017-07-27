@@ -1,25 +1,162 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
+output: Time plot series
   html_document:
     keep_md: true
 ---
 
+setwd("C:/Users/amisdoshi/Desktop/Data Science/Reproducible Research/RepData_PeerAssessment1")
+
+if (!file.exists('./activity.csv')){
+  unzip("activity.zip", exdir = getwd())
+}
+
 
 ## Loading and preprocessing the data
+# Clear the workspace
+rm(list=ls())
 
+# Load the raw activity data
+activity_raw <- read.csv("activity.csv", stringsAsFactors=FALSE)
+
+# Process/ transform data 
+# Transform the date attribute to an actual date format
+activity_raw$date <- as.POSIXct(activity_raw$date, format="%Y-%m-%d")
+
+# Compute the weekdays from the date attribute
+activity_raw <- data.frame(date=activity_raw$date, 
+                           weekday=tolower(weekdays(activity_raw$date)), 
+                           steps=activity_raw$steps, 
+                           interval=activity_raw$interval)
+
+# Compute the day type (weekend or weekday)
+activity_raw <- cbind(activity_raw, 
+                      daytype=ifelse(activity_raw$weekday == "saturday" | 
+                                     activity_raw$weekday == "sunday", "weekend", 
+                                     "weekday"))
+
+# Create the final data.frame
+activity <- data.frame(date=activity_raw$date, 
+                       weekday=activity_raw$weekday, 
+                       daytype=activity_raw$daytype, 
+                       interval=activity_raw$interval,
+                       steps=activity_raw$steps)
+
+#Read first few records
+head(activity)
 
 
 ## What is mean total number of steps taken per day?
 
+# Compute the total number of steps each day (NA values removed)
+sum_data <- aggregate(activity$steps, by=list(activity$date), FUN=sum, na.rm=TRUE)
 
+# Rename the attributes
+names(sum_data) <- c("date", "total")
+
+head(sum_data)
+
+# Compute the histogram of the total number of steps each day
+hist(sum_data$total, 
+     breaks=seq(from=0, to=25000, by=2500),
+     col="blue", 
+     xlab="Total number of steps", 
+     ylim=c(0, 20), 
+     main="Histogram of the total number of steps taken each day\n(NA removed)")
+     
+#calculate mean and median of steps taken daily
+mean(sum_data$total)
+median(sum_data$total)
 
 ## What is the average daily activity pattern?
+# Clear the workspace
+rm(sum_data)
 
+# Compute the means of steps accross all days for each interval
+mean_data <- aggregate(activity$steps, 
+                       by=list(activity$interval), 
+                       FUN=mean, 
+                       na.rm=TRUE)
 
+# Rename the attributes
+names(mean_data) <- c("interval", "mean")
+
+head(mean_data)
+
+#time series plot is created as 
+
+# Compute the time series plot
+plot(mean_data$interval, 
+     mean_data$mean, 
+     type="l", 
+     col="blue", 
+     lwd=2, 
+     xlab="Interval [minutes]", 
+     ylab="Average number of steps", 
+     main="Time-series of the average number of steps per intervals\n(NA removed)")
+
+# We find the position of the maximum mean
+max_pos <- which(mean_data$mean == max(mean_data$mean))
+
+# We lookup the value of interval at this position
+max_interval <- mean_data[max_pos, 1]
+
+# Clear the workspace
+rm(max_pos, mean_data)
 
 ## Imputing missing values
+#basically we are getting instances where there are missing values
+
+NA_count <- sum(is.na(activity$steps))
+
+#Fill missing values with median 
+# Find the NA positions
+na_pos <- which(is.na(activity$steps))
+
+# Create a vector of means
+median_vec <- rep(median(activity$steps, na.rm=TRUE), times=length(na_pos))
+
+#create new dataset with filled in values 
+# Replace the NAs by the means
+activity[na_pos, "steps"] <- mean_vec
+
+# Clear the workspace
 
 
+head(activity)
+
+#histogram with new metrics
+# Compute the total number of steps each day (NA values removed)
+sum_data <- aggregate(activity$steps, by=list(activity$date), FUN=sum)
+
+# Rename the attributes
+names(sum_data) <- c("date", "total")
+
+# Compute the histogram of the total number of steps each day
+hist(sum_data$total, 
+     breaks=seq(from=0, to=25000, by=2500),
+     col="blue", 
+     xlab="Total number of steps", 
+     ylim=c(0, 30), 
+     main="Histogram of the total number of steps taken each day\n(NA replaced by mean value)")
+mean(sum_data$total)
+median(sum_data$total)     
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+
+dayofweek <- function(date) {
+    if (weekdays(as.Date(date)) %in% c("Saturday", "Sunday")) {
+        "weekend"
+    } else {
+        "weekday"
+    }
+}
+new$daytype <- as.factor(sapply(activity$date, dayofweek))
+
+par(mfrow = c(2, 1))
+for (type in c("weekend", "weekday")) {
+    steps.type <- aggregate(steps ~ interval, data = activity, subset = activity$daytype == 
+        type, FUN = mean)
+    plot(steps.type, type = "l", main = type)
+}
